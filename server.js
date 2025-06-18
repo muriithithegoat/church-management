@@ -33,3 +33,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
+const familyRoutes = require('./routes/familyRoutes');
+app.use('/api/families', familyRoutes);
