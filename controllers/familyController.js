@@ -1,4 +1,4 @@
-const Family = require('../models/family');
+const Family = require('../models/Family');
 
 const createFamily = async (req, res) => {
   try {
