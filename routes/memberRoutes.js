@@ -1,16 +1,15 @@
 const express = require('express');
 const router = express.Router();
-
-// Import the controller functions
 const {
+  getMembers,
   addMember,
-  getAllMembers,
-  getMemberById
+  updateMember,
+  deleteMember
 } = require('../controllers/memberController');
 
-// Routes
-router.post('/', addMember);            // Add a new member
-router.get('/', getAllMembers);         // Get all members
-router.get('/:id', getMemberById);      // Get one member by ID
+router.get('/', getMembers); // /api/members
+router.post('/', addMember);
+router.put('/:id', updateMember);
+router.delete('/:id', deleteMember);
 
 module.exports = router;

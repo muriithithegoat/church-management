@@ -1,47 +1,59 @@
-const Member = require('../models/Member');
+const Member = require('../models/member');
 
-// Add a new member
+// GET all members
+const getMembers = async (req, res) => {
+  try {
+    const members = await Member.find();
+    res.status(200).json(members);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ADD a new member
 const addMember = async (req, res) => {
   try {
-    const member = new Member(req.body);
-    const savedMember = await member.save();
+    const newMember = new Member(req.body);
+    const savedMember = await newMember.save();
     res.status(201).json(savedMember);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 };
 
-// Get all members
-const getAllMembers = async (req, res) => {
+// UPDATE a member
+const updateMember = async (req, res) => {
   try {
-    const members = await Member.find()
-      .populate('familyId') // We'll define this in the model
-      .populate('matrimony.spouseId'); // Optional spouse info
-    res.status(200).json(members);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get a single member by ID
-const getMemberById = async (req, res) => {
-  try {
-    const member = await Member.findById(req.params.id)
-      .populate('familyId')
-      .populate('matrimony.spouseId');
-
-    if (!member) {
+    const updated = await Member.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!updated) {
       return res.status(404).json({ message: 'Member not found' });
     }
+    res.status(200).json(updated);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
 
-    res.status(200).json(member);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+// DELETE a member
+const deleteMember = async (req, res) => {
+  try {
+    const deleted = await Member.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Member not found' });
+    }
+    res.status(200).json({ message: 'Member deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
 module.exports = {
+  getMembers,
   addMember,
-  getAllMembers,
-  getMemberById
+  updateMember,
+  deleteMember
 };
