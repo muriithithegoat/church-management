@@ -1,38 +1,30 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const cors = require('cors');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const memberRoutes = require("./routes/memberRoutes");
 
-// Load environment variables
 dotenv.config();
 
-// Initialize app
 const app = express();
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('✅ MongoDB Connected'))
-.catch((err) => console.error('❌ MongoDB Error:', err));
+// API Routes
+app.use("/api", memberRoutes);
 
-// Test route
-app.get('/', (req, res) => {
-  res.send('👋 Church Management API is running');
-});
+// MongoDB Connection
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/churchdb";
 
-// Import and use routes
-const memberRoutes = require('./routes/memberRoutes');
-app.use('/api/members', memberRoutes);
+mongoose
+  .connect(MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.error("❌ MongoDB Error:", err));
 
-// Start server
+// Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
-
-const familyRoutes = require('./routes/familyRoutes');
-app.use('/api/families', familyRoutes);
