@@ -1,3 +1,5 @@
+const authRoutes = require('./routes/authRoutes');
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -14,6 +16,9 @@ app.use(express.json());
 
 // ✅ Register API route
 app.use("/api/members", memberRoutes); // <- this is what makes /api/members work
+
+app.use('/api/auth', authRoutes);
+// <- this is what makes /api/auth work
 
 // MongoDB connection
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/churchdb";
