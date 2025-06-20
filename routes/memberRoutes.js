@@ -1,20 +1,91 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const memberController = require("../controllers/memberController");
+const Member = require('../models/Member');
 
-// Add a new member
-router.post("/members", memberController.addMember);
+// ✅ Get all members
+router.get('/', async (req, res) => {
+  try {
+    const members = await Member.find().populate('matrimony.spouseId', 'fullName');
+    res.json(members);
+  } catch (err) {
+    console.error('Error fetching members:', err);
+    res.status(500).json({ message: 'Failed to fetch members' });
+  }
+});
 
-// Get all members
-router.get("/members", memberController.getMembers);
+// ✅ Add new member
+router.post('/', async (req, res) => {
+  try {
+    const newMember = new Member(req.body);
+    await newMember.save();
+    res.status(201).json(newMember);
+  } catch (err) {
+    console.error('Error adding member:', err);
+    res.status(400).json({ message: 'Failed to add member' });
+  }
+});
 
-// Get a specific member by ID
-router.get("/members/:id", memberController.getMember);
+// ✅ Get single member by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const member = await Member.findById(req.params.id).populate('matrimony.spouseId', 'fullName');
+    if (!member) {
+      return res.status(404).json({ message: 'Member not found' });
+    }
+    res.json(member);
+  } catch (err) {
+    console.error('Error fetching member:', err);
+    res.status(500).json({ message: 'Failed to fetch member' });
+  }
+});
 
-// Update a member by ID
-router.put("/members/:id", memberController.updateMember);
+// ✅ Update member
+router.put('/:id', async (req, res) => {
+  try {
+    const updatedMember = await Member.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
+    if (!updatedMember) {
+      return res.status(404).json({ message: 'Member not found' });
+    }
+    res.json(updatedMember);
+  } catch (err) {
+    console.error('Error updating member:', err);
+    res.status(400).json({ message: 'Failed to update member' });
+  }
+});
 
-// Delete a member by ID
-router.delete("/members/:id", memberController.deleteMember);
+// ✅ Delete member
+router.delete('/:id', async (req, res) => {
+  try {
+    const deleted = await Member.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Member not found' });
+    }
+    res.json({ message: 'Member deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting member:', err);
+    res.status(500).json({ message: 'Failed to delete member' });
+  }
+});
+
+// ✅ Get stats (Step 1)
+router.get('/stats/summary', async (req, res) => {
+  try {
+    const totalMembers = await Member.countDocuments();
+    const marriedMembers = await Member.countDocuments({ 'matrimony.isMarried': true });
+    const baptizedMembers = await Member.countDocuments({ baptismDate: { $ne: null } });
+
+    res.json({
+      totalMembers,
+      marriedMembers,
+      baptizedMembers
+    });
+  } catch (err) {
+    console.error('Error fetching stats:', err);
+    res.status(500).json({ message: 'Failed to fetch stats' });
+  }
+});
 
 module.exports = router;
