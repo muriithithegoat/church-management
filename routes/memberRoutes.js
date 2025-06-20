@@ -3,7 +3,7 @@ const router = express.Router();
 const Member = require('../models/Member');
 
 // ✅ Get all members
-router.get('/', async (req, res) => {
+router.get('/members', async (req, res) => {
   try {
     const members = await Member.find().populate('matrimony.spouseId', 'fullName');
     res.json(members);
@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
 });
 
 // ✅ Add new member
-router.post('/', async (req, res) => {
+router.post('/members', async (req, res) => {
   try {
     const newMember = new Member(req.body);
     await newMember.save();
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
 });
 
 // ✅ Get single member by ID
-router.get('/:id', async (req, res) => {
+router.get('/members/:id', async (req, res) => {
   try {
     const member = await Member.findById(req.params.id).populate('matrimony.spouseId', 'fullName');
     if (!member) {
@@ -40,7 +40,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // ✅ Update member
-router.put('/:id', async (req, res) => {
+router.put('/members/:id', async (req, res) => {
   try {
     const updatedMember = await Member.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -57,7 +57,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // ✅ Delete member
-router.delete('/:id', async (req, res) => {
+router.delete('/members/:id', async (req, res) => {
   try {
     const deleted = await Member.findByIdAndDelete(req.params.id);
     if (!deleted) {
@@ -70,17 +70,23 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ✅ Get stats (Step 1)
-router.get('/stats/summary', async (req, res) => {
+// ✅ Stats Route
+router.get('/members/stats', async (req, res) => {
   try {
     const totalMembers = await Member.countDocuments();
     const marriedMembers = await Member.countDocuments({ 'matrimony.isMarried': true });
     const baptizedMembers = await Member.countDocuments({ baptismDate: { $ne: null } });
 
+    const spouseIds = await Member.distinct('matrimony.spouseId', {
+      'matrimony.spouseId': { $ne: null }
+    });
+    const familyCount = spouseIds.length;
+
     res.json({
       totalMembers,
       marriedMembers,
-      baptizedMembers
+      baptizedMembers,
+      familyCount
     });
   } catch (err) {
     console.error('Error fetching stats:', err);
