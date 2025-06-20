@@ -30,6 +30,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  // For now, just return a success message
+  return res.json({ message: 'If this email exists, a reset link will be sent.' });
+});
+
+
 // ✅ Login user
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
