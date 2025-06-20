@@ -3,7 +3,7 @@ const router = express.Router();
 const Member = require('../models/Member');
 
 // ✅ Get all members
-router.get('/members', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const members = await Member.find().populate('matrimony.spouseId', 'fullName');
     res.json(members);
@@ -14,7 +14,7 @@ router.get('/members', async (req, res) => {
 });
 
 // ✅ Add new member
-router.post('/members', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const newMember = new Member(req.body);
     await newMember.save();
@@ -26,7 +26,7 @@ router.post('/members', async (req, res) => {
 });
 
 // ✅ Get single member by ID
-router.get('/members/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const member = await Member.findById(req.params.id).populate('matrimony.spouseId', 'fullName');
     if (!member) {
@@ -40,7 +40,7 @@ router.get('/members/:id', async (req, res) => {
 });
 
 // ✅ Update member
-router.put('/members/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const updatedMember = await Member.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -57,7 +57,7 @@ router.put('/members/:id', async (req, res) => {
 });
 
 // ✅ Delete member
-router.delete('/members/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const deleted = await Member.findByIdAndDelete(req.params.id);
     if (!deleted) {
@@ -70,8 +70,8 @@ router.delete('/members/:id', async (req, res) => {
   }
 });
 
-// ✅ Stats Route
-router.get('/members/stats', async (req, res) => {
+// ✅ Stats route
+router.get('/stats/summary', async (req, res) => {
   try {
     const totalMembers = await Member.countDocuments();
     const marriedMembers = await Member.countDocuments({ 'matrimony.isMarried': true });
