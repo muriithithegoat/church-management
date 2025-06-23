@@ -1,14 +1,15 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const router = express.Router();
 
-// Token generator
+// Generate JWT token
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, role: user.role },
+    { id: user._id },
     process.env.JWT_SECRET || 'secretkey',
     { expiresIn: '7d' }
   );
@@ -17,7 +18,6 @@ const generateToken = (user) => {
 // ✅ Register
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
-
   try {
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: 'User already exists' });
@@ -34,13 +34,11 @@ router.post('/register', async (req, res) => {
 // ✅ Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
   try {
     const user = await User.findOne({ email });
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-
     const token = generateToken(user);
     res.json({ user: { name: user.name, email: user.email }, token });
   } catch (err) {
@@ -49,50 +47,61 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ✅ Forgot Password with Email Reset Link
+// ✅ Forgot password - Send email
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
-
   try {
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.json({ message: 'If this email exists, a reset link will be sent.' });
-    }
+    if (!user) return res.status(200).json({ message: 'If this email exists, a reset link was sent.' });
 
-    // Generate reset token
-    const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secretkey', {
-      expiresIn: '1h',
-    });
+    const token = crypto.randomBytes(32).toString('hex');
+    const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secretkey', { expiresIn: '10m' });
 
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
 
-    // Setup nodemailer
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+        user: process.env.EMAIL_USER,      // your Gmail
+        pass: process.env.EMAIL_PASS       // your App Password
+      }
     });
 
-    const mailOptions = {
-      from: '"Church System" <no-reply@church.com>',
-      to: user.email,
-      subject: 'Reset Your Password',
+    await transporter.sendMail({
+      from: `"Church App" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset',
       html: `
-        <h3>Password Reset Request</h3>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>This link will expire in 1 hour.</p>
-      `,
-    };
+        <p>Hello ${user.name},</p>
+        <p>You requested to reset your password. Click the button below:</p>
+        <a href="${resetLink}" style="display:inline-block;padding:10px 20px;background-color:#28a745;color:#fff;text-decoration:none;border-radius:4px;">Reset Password</a>
+        <p>This link will expire in 10 minutes.</p>
+      `
+    });
 
-    await transporter.sendMail(mailOptions);
-
-    res.json({ message: 'Reset link sent to your email address' });
+    res.json({ message: 'Reset link sent to email' });
   } catch (err) {
     console.error('Forgot Password Error:', err);
     res.status(500).json({ message: 'Failed to send reset email' });
+  }
+});
+
+// ✅ Reset password
+router.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(400).json({ message: 'User not found' });
+
+    user.password = password;
+    await user.save();
+
+    res.json({ message: 'Password reset successful' });
+  } catch (err) {
+    console.error('Reset Password Error:', err);
+    res.status(400).json({ message: 'Invalid or expired token' });
   }
 });
 
