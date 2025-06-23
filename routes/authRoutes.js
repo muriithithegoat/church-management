@@ -1,12 +1,12 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
+
 const router = express.Router();
 
-// Generate JWT token
+// ✅ JWT token generator
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id },
@@ -15,7 +15,7 @@ const generateToken = (user) => {
   );
 };
 
-// ✅ Register
+// ✅ Register new user
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -47,23 +47,21 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ✅ Forgot password - Send email
+// ✅ Forgot Password — Send Email
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(200).json({ message: 'If this email exists, a reset link was sent.' });
 
-    const token = crypto.randomBytes(32).toString('hex');
     const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secretkey', { expiresIn: '10m' });
-
     const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,      // your Gmail
-        pass: process.env.EMAIL_PASS       // your App Password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
       }
     });
 
@@ -86,22 +84,41 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// ✅ Reset password
+// ✅ Reset Password
 router.post('/reset-password/:token', async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
+
+  if (!password || password.length < 6) {
+    return res.status(400).json({ message: 'Password must be at least 6 characters' });
+  }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
     const user = await User.findById(decoded.id);
     if (!user) return res.status(400).json({ message: 'User not found' });
 
-    user.password = password;
+    user.password = password; // this triggers bcrypt hash via pre-save hook
     await user.save();
 
     res.json({ message: 'Password reset successful' });
   } catch (err) {
     console.error('Reset Password Error:', err);
     res.status(400).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// ✅ Optional: Verify token endpoint
+router.get('/me', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+    res.json({ userId: decoded.id });
+  } catch {
+    res.status(401).json({ message: 'Invalid token' });
   }
 });
 
