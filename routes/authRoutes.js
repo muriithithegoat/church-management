@@ -1,10 +1,12 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const User = require('../models/User');
+
 const router = express.Router();
 
-// Generate token
+// Generate login token
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id, role: user.role },
@@ -13,7 +15,7 @@ const generateToken = (user) => {
   );
 };
 
-// ✅ Register new user
+// ✅ Register
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -30,14 +32,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  // For now, just return a success message
-  return res.json({ message: 'If this email exists, a reset link will be sent.' });
-});
-
-
-// ✅ Login user
+// ✅ Login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -52,6 +47,60 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login Error:', err);
     res.status(500).json({ message: 'Login failed' });
+  }
+});
+
+// ✅ Forgot Password
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(200).json({ message: 'If this email exists, a reset link will be sent.' });
+
+    // Generate token
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Save to user
+    user.resetToken = hashedToken;
+    user.resetTokenExpire = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    console.log('📨 Reset link (simulate email):', resetUrl);
+
+    res.json({ message: 'Reset link sent to email (check console)' });
+  } catch (err) {
+    console.error('Forgot Password Error:', err);
+    res.status(500).json({ message: 'Failed to process reset' });
+  }
+});
+
+// ✅ Reset Password
+router.post('/reset-password/:token', async (req, res) => {
+  const resetToken = req.params.token;
+  const { password } = req.body;
+
+  try {
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    const user = await User.findOne({
+      resetToken: hashedToken,
+      resetTokenExpire: { $gt: Date.now() },
+    });
+
+    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+
+    user.password = password;
+    user.resetToken = undefined;
+    user.resetTokenExpire = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successful' });
+  } catch (err) {
+    console.error('Reset Password Error:', err);
+    res.status(500).json({ message: 'Reset failed' });
   }
 });
 
