@@ -1,11 +1,27 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
-const Member = require('../models/Member');
+const Member = require('../models/member');
 
-// ✅ Get all members
-router.get('/', async (req, res) => {
+// Middleware to extract user ID from JWT
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
+
+  const token = authHeader.split(' ')[1];
   try {
-    const members = await Member.find().populate('matrimony.spouseId', 'fullName');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey');
+    req.userId = decoded.id;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+// ✅ Get all members for this user
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const members = await Member.find({ userId: req.userId }).populate('matrimony.spouseId', 'fullName');
     res.json(members);
   } catch (err) {
     console.error('Error fetching members:', err);
@@ -13,10 +29,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ✅ Add new member
-router.post('/', async (req, res) => {
+// ✅ Add new member for this user
+router.post('/', authenticate, async (req, res) => {
   try {
-    const newMember = new Member(req.body);
+    const newMember = new Member({
+      ...req.body,
+      userId: req.userId
+    });
     await newMember.save();
     res.status(201).json(newMember);
   } catch (err) {
@@ -25,10 +44,12 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ✅ Get single member by ID
-router.get('/:id', async (req, res) => {
+// ✅ Get single member by ID (only if belongs to user)
+router.get('/:id', authenticate, async (req, res) => {
   try {
-    const member = await Member.findById(req.params.id).populate('matrimony.spouseId', 'fullName');
+    const member = await Member.findOne({ _id: req.params.id, userId: req.userId })
+      .populate('matrimony.spouseId', 'fullName');
+
     if (!member) {
       return res.status(404).json({ message: 'Member not found' });
     }
@@ -39,13 +60,14 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// ✅ Update member
-router.put('/:id', async (req, res) => {
+// ✅ Update member (only if belongs to user)
+router.put('/:id', authenticate, async (req, res) => {
   try {
-    const updatedMember = await Member.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const updatedMember = await Member.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      req.body,
+      { new: true, runValidators: true }
+    );
     if (!updatedMember) {
       return res.status(404).json({ message: 'Member not found' });
     }
@@ -56,10 +78,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ✅ Delete member
-router.delete('/:id', async (req, res) => {
+// ✅ Delete member (only if belongs to user)
+router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const deleted = await Member.findByIdAndDelete(req.params.id);
+    const deleted = await Member.findOneAndDelete({ _id: req.params.id, userId: req.userId });
     if (!deleted) {
       return res.status(404).json({ message: 'Member not found' });
     }
@@ -70,16 +92,18 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ✅ Stats route
-router.get('/stats/summary', async (req, res) => {
+// ✅ Stats route for current user
+router.get('/stats/summary', authenticate, async (req, res) => {
   try {
-    const totalMembers = await Member.countDocuments();
-    const marriedMembers = await Member.countDocuments({ 'matrimony.isMarried': true });
-    const baptizedMembers = await Member.countDocuments({ baptismDate: { $ne: null } });
+    const totalMembers = await Member.countDocuments({ userId: req.userId });
+    const marriedMembers = await Member.countDocuments({ userId: req.userId, 'matrimony.isMarried': true });
+    const baptizedMembers = await Member.countDocuments({ userId: req.userId, baptismDate: { $ne: null } });
 
     const spouseIds = await Member.distinct('matrimony.spouseId', {
+      userId: req.userId,
       'matrimony.spouseId': { $ne: null }
     });
+
     const familyCount = spouseIds.length;
 
     res.json({

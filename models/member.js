@@ -28,6 +28,11 @@ const memberSchema = new mongoose.Schema({
     ref: 'Family',
     default: null
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true // 🔐 This ensures multi-tenancy is enforced
+  },
   createdAt: {
     type: Date,
     default: Date.now
