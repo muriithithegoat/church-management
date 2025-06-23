@@ -1,12 +1,11 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
-
 const router = express.Router();
 
-// Generate login token
+// Token generator
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id, role: user.role },
@@ -50,57 +49,50 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ✅ Forgot Password
+// ✅ Forgot Password with Email Reset Link
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(200).json({ message: 'If this email exists, a reset link will be sent.' });
+    if (!user) {
+      return res.json({ message: 'If this email exists, a reset link will be sent.' });
+    }
 
-    // Generate token
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    // Save to user
-    user.resetToken = hashedToken;
-    user.resetTokenExpire = Date.now() + 3600000; // 1 hour
-    await user.save();
-
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
-    console.log('📨 Reset link (simulate email):', resetUrl);
-
-    res.json({ message: 'Reset link sent to email (check console)' });
-  } catch (err) {
-    console.error('Forgot Password Error:', err);
-    res.status(500).json({ message: 'Failed to process reset' });
-  }
-});
-
-// ✅ Reset Password
-router.post('/reset-password/:token', async (req, res) => {
-  const resetToken = req.params.token;
-  const { password } = req.body;
-
-  try {
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-    const user = await User.findOne({
-      resetToken: hashedToken,
-      resetTokenExpire: { $gt: Date.now() },
+    // Generate reset token
+    const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'secretkey', {
+      expiresIn: '1h',
     });
 
-    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
 
-    user.password = password;
-    user.resetToken = undefined;
-    user.resetTokenExpire = undefined;
-    await user.save();
+    // Setup nodemailer
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
-    res.json({ message: 'Password reset successful' });
+    const mailOptions = {
+      from: '"Church System" <no-reply@church.com>',
+      to: user.email,
+      subject: 'Reset Your Password',
+      html: `
+        <h3>Password Reset Request</h3>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>This link will expire in 1 hour.</p>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: 'Reset link sent to your email address' });
   } catch (err) {
-    console.error('Reset Password Error:', err);
-    res.status(500).json({ message: 'Reset failed' });
+    console.error('Forgot Password Error:', err);
+    res.status(500).json({ message: 'Failed to send reset email' });
   }
 });
 
