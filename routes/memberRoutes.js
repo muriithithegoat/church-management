@@ -29,7 +29,7 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// ✅ Add new member (with DOB & groups)
+// ✅ Add new member
 router.post('/', authenticate, async (req, res) => {
   try {
     const {
@@ -79,7 +79,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// ✅ Update member
+// ✅ Update member using $set to preserve nested structure
 router.put('/:id', authenticate, async (req, res) => {
   try {
     const {
@@ -91,20 +91,23 @@ router.put('/:id', authenticate, async (req, res) => {
       groups
     } = req.body;
 
+    const updateFields = {
+      fullName,
+      baptismDate,
+      dateOfBirth,
+      familyId: familyId || null,
+      groups: Array.isArray(groups) ? groups : [],
+    };
+
+    if (matrimony) {
+      updateFields['matrimony.isMarried'] = matrimony.isMarried || false;
+      updateFields['matrimony.spouseId'] = matrimony.spouseId || null;
+      updateFields['matrimony.marriageDate'] = matrimony.marriageDate || null;
+    }
+
     const updatedMember = await Member.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
-      {
-        fullName,
-        baptismDate,
-        dateOfBirth,
-        matrimony: {
-          isMarried: matrimony?.isMarried || false,
-          spouseId: matrimony?.spouseId || null,
-          marriageDate: matrimony?.marriageDate || null
-        },
-        familyId: familyId || null,
-        groups: Array.isArray(groups) ? groups : []
-      },
+      { $set: updateFields },
       { new: true, runValidators: true }
     );
 
