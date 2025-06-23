@@ -5,6 +5,9 @@ const memberSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  dateOfBirth: {
+    type: Date
+  },
   baptismDate: {
     type: Date
   },
@@ -23,6 +26,10 @@ const memberSchema = new mongoose.Schema({
       default: null
     }
   },
+  groups: {
+    type: [String],
+    default: [] // allows multiple custom groups like ['Youth', 'SCC Alpha']
+  },
   familyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Family',
@@ -31,7 +38,7 @@ const memberSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true // 🔐 This ensures multi-tenancy is enforced
+    required: true // Multi-tenancy support
   },
   createdAt: {
     type: Date,
