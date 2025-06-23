@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const Member = require('../models/member');
 
-// Middleware to extract user ID from JWT
+// ✅ Middleware to extract user ID from JWT
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: 'No token provided' });
@@ -29,13 +29,32 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// ✅ Add new member for this user
+// ✅ Add new member (with DOB & groups)
 router.post('/', authenticate, async (req, res) => {
   try {
+    const {
+      fullName,
+      baptismDate,
+      dateOfBirth,
+      matrimony,
+      familyId,
+      groups
+    } = req.body;
+
     const newMember = new Member({
-      ...req.body,
+      fullName,
+      baptismDate,
+      dateOfBirth,
+      matrimony: {
+        isMarried: matrimony?.isMarried || false,
+        spouseId: matrimony?.spouseId || null,
+        marriageDate: matrimony?.marriageDate || null
+      },
+      familyId: familyId || null,
+      groups: Array.isArray(groups) ? groups : [],
       userId: req.userId
     });
+
     await newMember.save();
     res.status(201).json(newMember);
   } catch (err) {
@@ -44,7 +63,7 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// ✅ Get single member by ID (only if belongs to user)
+// ✅ Get single member by ID
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const member = await Member.findOne({ _id: req.params.id, userId: req.userId })
@@ -60,17 +79,39 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// ✅ Update member (only if belongs to user)
+// ✅ Update member
 router.put('/:id', authenticate, async (req, res) => {
   try {
+    const {
+      fullName,
+      baptismDate,
+      dateOfBirth,
+      matrimony,
+      familyId,
+      groups
+    } = req.body;
+
     const updatedMember = await Member.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
-      req.body,
+      {
+        fullName,
+        baptismDate,
+        dateOfBirth,
+        matrimony: {
+          isMarried: matrimony?.isMarried || false,
+          spouseId: matrimony?.spouseId || null,
+          marriageDate: matrimony?.marriageDate || null
+        },
+        familyId: familyId || null,
+        groups: Array.isArray(groups) ? groups : []
+      },
       { new: true, runValidators: true }
     );
+
     if (!updatedMember) {
       return res.status(404).json({ message: 'Member not found' });
     }
+
     res.json(updatedMember);
   } catch (err) {
     console.error('Error updating member:', err);
@@ -78,7 +119,7 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 });
 
-// ✅ Delete member (only if belongs to user)
+// ✅ Delete member
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const deleted = await Member.findOneAndDelete({ _id: req.params.id, userId: req.userId });
