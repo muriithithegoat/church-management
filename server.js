@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const memberRoutes = require("./routes/memberRoutes"); // <- must match your folder name + file name
+const groupRoutes = require('./routes/groupRoutes');
 
 dotenv.config();
 
@@ -18,6 +19,9 @@ app.use("/api/members", memberRoutes); // <- this is what makes /api/members wor
 
 app.use('/api/auth', authRoutes);
 // <- this is what makes /api/auth work
+
+app.use('/api/groups', groupRoutes);
+
 
 // MongoDB connection
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/churchdb";
