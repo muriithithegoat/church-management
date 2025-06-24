@@ -143,6 +143,8 @@ router.get('/stats/summary', authenticate, async (req, res) => {
     const totalMembers = await Member.countDocuments({ userId: req.userId });
     const marriedMembers = await Member.countDocuments({ userId: req.userId, 'matrimony.isMarried': true });
     const baptizedMembers = await Member.countDocuments({ userId: req.userId, baptismDate: { $ne: null } });
+    const maleCount = await Member.countDocuments({ userId: req.userId, gender: 'Male' });
+    const femaleCount = await Member.countDocuments({ userId: req.userId, gender: 'Female' });
 
     const spouseIds = await Member.distinct('matrimony.spouseId', {
       userId: req.userId,
@@ -155,6 +157,8 @@ router.get('/stats/summary', authenticate, async (req, res) => {
       totalMembers,
       marriedMembers,
       baptizedMembers,
+      maleCount,
+      femaleCount,
       familyCount
     });
   } catch (err) {
